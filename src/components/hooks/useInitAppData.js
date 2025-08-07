@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 import { useTickets } from "../../context/ticketsContext";
 //import { useAgents } from "../../context/agentsContext";
-import { useAuth } from "../../context/authContext";
+//import { useAuth } from "../../context/authContext";
 import { useLoading } from "../../providers/loadingProvider";
 import { fetchTableData } from "../../utils/apiTickets";
 //import { fetchAgentData } from '../../utils/apiAgents';
@@ -10,18 +10,19 @@ import { useNavigate } from 'react-router-dom';
 
 
 export const useInitAppData = () => {
-  const { user } = useAuth();
+  //const { user } = useAuth();
   const { dispatch: ticketDispatch } = useTickets();
   //const { dispatch: agentDispatch } = useAgents();
   const { setLoading } = useLoading();
   const navigate = useNavigate();
 
+  const user = 'esteban.ulloa@clmmail.com';
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
         //const agents = await fetchAgentData(user?.username);
-        const tickets = await fetchTableData(user?.username);
+        const tickets = await fetchTableData(user);
         //console.log(agents.message)
         //agentDispatch({ type: 'SET_AGENTS', payload: agents.message.agents });
         ticketDispatch({ type: 'SET_TICKETS', payload: tickets.message });
@@ -33,7 +34,8 @@ export const useInitAppData = () => {
         setLoading(false);
       }
     };
-    if (user?.username) load();
+    //if (user?.username) load();
+    if(user) load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.username]);
+  }, [user]);
 };
