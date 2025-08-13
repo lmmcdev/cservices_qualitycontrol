@@ -46,15 +46,12 @@ export default function EditTicket({ ticket: initialTicket }) {
     severity: 'success'
   });
 
-  const agentEmail = 'esteban.ulloa@clmmail.com';
-
   const handleQualityClick = useCallback(async () => {
     const newStatus = qualityControl ? 'QARevisionEnd' : 'QARevisionStart';
     const result = await handleStatusChange({
       dispatch,
       setLoading,
       ticketId: ticket.id,
-      agentEmail,
       newStatus: newStatus,
       setStatus,
       setSuccessMessage: (msg) => setSnackbar({ open: true, message: msg, severity: 'success' }),
@@ -66,7 +63,7 @@ export default function EditTicket({ ticket: initialTicket }) {
       setQualityControl(result.message.responseData.quality_control);
       setNotes(result.message.responseData.notes);
     }
-  }, [dispatch, setLoading, ticket.id, agentEmail, qualityControl]);
+  }, [dispatch, setLoading, ticket.id, qualityControl]);
 
 
    const handleAddNote = useCallback(async () => {
@@ -74,7 +71,6 @@ export default function EditTicket({ ticket: initialTicket }) {
         dispatch, 
         setLoading, 
         ticketId: ticket.id, 
-        agentEmail, 
         noteContent, 
         setNotes, 
         setNoteContent, 
@@ -86,9 +82,9 @@ export default function EditTicket({ ticket: initialTicket }) {
         setErrorOpen: () => {}});
 
         if (result.success) {
-          setNotes(result.message.responseData.notes)
+          setNotes(result.message.ticket?.notes)
         }
-    }, [dispatch, setLoading, ticket.id, agentEmail, noteContent, setNotes, setNoteContent, setOpenNoteDialog, setStatus]);
+    }, [dispatch, setLoading, ticket.id, noteContent, setNotes, setNoteContent, setOpenNoteDialog, setStatus]);
     
 
   useEffect(() => {

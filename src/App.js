@@ -6,12 +6,18 @@ import { BrowserRouter } from 'react-router-dom';
 // Contexts and utilities
 import AppProviders from './providers/appProvider';
 import AppRoutes from './routes/appRoutes';
+import { setupFetchAuth } from './setupFetchAuth';
 
 //import { useInitAppData } from './components/hooks/useInitAppData';
 
 import './App.css';
 
 function AppContent() {
+  React.useEffect(() => {
+    setupFetchAuth();
+  }, []); // ← una sola vez
+
+
   const [agentEmail, setAgentEmail] = useState('');
   const [filters, setFilters] = useState({
     date: '',

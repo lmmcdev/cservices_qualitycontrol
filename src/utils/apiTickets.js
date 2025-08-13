@@ -1,7 +1,11 @@
 // ticketUtils.js
-export const fetchTableData = async (agentAssigned) => {
- 
-    const response = await fetch(`https://cservicesapi.azurewebsites.net/api/cosmoGetQuality?agent_assigned=${encodeURIComponent(agentAssigned)}`);
+import { ENDPOINT_URLS } from "../utils/js/constants";
+
+export const fetchTableData = async () => {
+
+    const response = await fetch(`${ENDPOINT_URLS.API}/cosmoGetQuality`);
+    //validate json output
+    if(response.status === 204) return { success: true, message: [] }; // No content
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || 'Error fetching tickets');
     return data;
@@ -11,7 +15,7 @@ export const fetchTableData = async (agentAssigned) => {
 //phone calls history
 export const phoneHistory = async (dispatch, setLoading, phoneNumber) => {
   try {
-    const response = await fetch(`https://cservicesapi.azurewebsites.net/api/cosmoGetPhoneHistory?phone=${encodeURIComponent(phoneNumber)}`);
+    const response = await fetch(`${ENDPOINT_URLS.API}/cosmoGetPhoneHistory?phone=${encodeURIComponent(phoneNumber)}`);
     const data = await response.json();
     if (!response.ok) {
       throw new Error(data.message || 'Error fetching calls history');
@@ -30,16 +34,12 @@ export const phoneHistory = async (dispatch, setLoading, phoneNumber) => {
 
 //update agent_assigned
 // assign agent to a ticket
-export const changeStatus = async (dispatch, setLoading, ticketId, currentAgentEmail, newStatus) => {
+export const changeStatus = async (dispatch, setLoading, ticketId, newStatus) => {
   try {
-    const response = await fetch(`https://cservicesapi.azurewebsites.net/api/cosmoUpdateStatusQuality`, {
+    const response = await fetch(`${ENDPOINT_URLS.API}/cosmoUpdateStatusQuality`, {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify({
         ticketId: ticketId,
-        agent_email: currentAgentEmail,
         newStatus: newStatus,
       }),
     });
@@ -62,16 +62,12 @@ export const changeStatus = async (dispatch, setLoading, ticketId, currentAgentE
 
 
 // add agent note to ticket
-export const addNotes = async (dispatch, setLoading, ticketId, currentAgentEmail, note) => {
+export const addNotes = async (dispatch, setLoading, ticketId, note) => {
   try {
-    const response = await fetch(`https://cservicesapi.azurewebsites.net/api/cosmoUpdateNotesQuality`, {
+    const response = await fetch(`${ENDPOINT_URLS.API}/cosmoUpdateNotesQuality`, {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify({
         ticketId: ticketId,
-        agent_email: currentAgentEmail,
         notes: note,
       }),
     });
@@ -97,14 +93,10 @@ export const addNotes = async (dispatch, setLoading, ticketId, currentAgentEmail
 
 export const searchTickets = async ({ query, page, size, filter }, accessToken) => {
   //if (accessToken === null) return { success: false, message: 'No access token provided' };
-    let url = `https://cservicesapi.azurewebsites.net/api/searchTicketsQuality`;
+    let url = `${ENDPOINT_URLS.API}/searchTicketsQuality`;
     try {
         const response = await fetch(url, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        // Authorization: `Bearer ${accessToken}`, si usas autenticación
-        },
         body: JSON.stringify({
       query,
       page,
@@ -128,7 +120,7 @@ export const searchTickets = async ({ query, page, size, filter }, accessToken) 
 
 export const getTicketById = async (ticketId, accessToken=null) => {
   //if (accessToken === null) return { success: false, message: 'No access token provided' };
-    let url = `https://cservicesapi.azurewebsites.net/api/cosmoGetByIds`;
+    let url = `${ENDPOINT_URLS.API}/cosmoGetByIds`;
     try {
         const response = await fetch(url, {
           method: 'POST',

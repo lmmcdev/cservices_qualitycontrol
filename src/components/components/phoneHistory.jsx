@@ -16,29 +16,30 @@ const usePhoneHistory = (phoneNumber) => {
     const [history, setHistory] = useState([]);
     const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      if (!phoneNumber) return;
-      setError(null);
-        setLoading(true)
-      try {
-        const result = await phoneHistory(dispatch, setLoading, phoneNumber);
-        if (result.success) {
-            setSuccessMessage(result.message);
-            setSuccessOpen(true);
-        } else {
-            setErrorMessage(result.message);
-            setErrorOpen(true);
-        }  
-        setHistory(result.message || []);
-      } catch (err) {
-        setError(err.message || 'Something went wrong');
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    fetchHistory();
+    useEffect(() => {
+      const fetchHistory = async () => {
+        if (!phoneNumber || phoneNumber === null) return;
+        setError(null);
+          setLoading(true)
+        try {
+          const result = await phoneHistory(dispatch, setLoading, phoneNumber);
+          if (result.success) {
+              setSuccessMessage(result.message);
+              setSuccessOpen(true);
+          } else {
+              setErrorMessage(result.message);
+              setErrorOpen(true);
+          }  
+          setHistory(result.message || []);
+        } catch (err) {
+          setError(err.message || 'Something went wrong');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchHistory();
   }, [phoneNumber, setLoading]);
 
   return { history, error };

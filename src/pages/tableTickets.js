@@ -1,8 +1,6 @@
 // src/pages/tableTickets.jsx
 
 import React, { useEffect, useState } from 'react';
-//import { useLoading } from '../providers/loadingProvider.jsx';
-//import { useAuth } from '../context/authContext.js';
 import { useTickets } from '../context/ticketsContext.js';
 import {
   Box,
@@ -17,7 +15,6 @@ import {
   TableHead,
   TableRow,
   TablePagination,
-  IconButton,
   Tooltip
 } from '@mui/material';
 import { icons } from '../components/auxiliars/icons.js';
@@ -27,7 +24,6 @@ import { emailToFullName } from '../utils/js/emailToFullName.js';
 import StatusFilterBoxes from '../components/statusFilterBoxes';
 import { SortAscending, SortDescending } from 'phosphor-react';
 import { getStatusColor } from '../utils/js/statusColors.js';
-import SuspenseFallback from '../components/auxiliars/suspenseFallback.js';
 import { TicketIndicators } from '../components/ticketIndicators';
 import { useInitAppData } from '../components/hooks/useInitAppData';
 import DialogFullScreenRouter from '../components/dialogs/dialogFullScreenRouter.js';
@@ -37,8 +33,7 @@ export default function TableTickets() {
   useInitAppData();
   const { filters } = useFilters();
   const { state } = useTickets();
-  //const { setLoading } = useLoading();
-  //const { user } = useAuth();
+
   const [selectedStatus, setSelectedStatus] = useState('Total');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -129,9 +124,9 @@ export default function TableTickets() {
     };
   
 
-  if (!Array.isArray(state.tickets) || state.tickets.length === 0) {
+  /*if (!Array.isArray(state.tickets) || state.tickets.length === 0) {
     return <SuspenseFallback />;
-  }
+  }*/
 
   return (
     <>
@@ -258,7 +253,7 @@ export default function TableTickets() {
                       <TableCell>{emailToFullName(row.agent_assigned)}</TableCell>
                       <TableCell>
                         <Box display="flex" justifyContent="center" gap={1}>
-                          {row.agent_assigned ? (
+                         
                             <Tooltip title="Edit">
                               <Box
                                 sx={{
@@ -282,28 +277,7 @@ export default function TableTickets() {
                                 <icons.edit sx={{ fontSize: 16 }} />
                               </Box>
                             </Tooltip>
-                          ) : (
-                            <Tooltip title="Not Assigned Yet">
-                              <IconButton
-                                
-                                sx={{
-                                  backgroundColor: '#daf8f4',
-                                  color: '#00b8a3',
-                                  borderRadius: '50%',
-                                  p: 1,
-                                  width: 32,
-                                  height: 32,
-                                  transition: 'background-color 0.3s',
-                                  '&:hover': {
-                                    backgroundColor: '#00b8a3',
-                                    color: '#fff',
-                                  },
-                                }}
-                              >
-                                <icons.assignToMe size={16} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
+                          
                         </Box>
                       </TableCell>
                     </TableRow>

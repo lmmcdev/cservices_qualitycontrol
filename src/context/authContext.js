@@ -1,133 +1,213 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { PublicClientApplication, InteractionRequiredAuthError } from "@azure/msal-browser";
-import { msalConfig } from "../utils/azureAuth";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+} from "react";
+import {
+  PublicClientApplication,
+  InteractionRequiredAuthError,
+} from "@azure/msal-browser";
 import { useAgents } from "./agentsContext";
+import { ENDPOINT_URLS } from "../utils/js/constants";
+
+// ⬇️ usa SIEMPRE la config centralizada
+import { msalConfig, apiScopes, graphScopes, loginRequest } from "../utils/azureAuth";
 
 export const msalInstance = new PublicClientApplication(msalConfig);
 
-const AuthContext = createContext();
+const AuthContext = createContext(undefined);
 
-const loginRequest = {
-  scopes: ["User.Read", "User.ReadBasic.All"],
-};
+const graphRequest = { scopes: graphScopes };
+const apiRequest = { scopes: apiScopes };
+
+async function acquire(msal, req, account) {
+  try {
+    const res = await msal.acquireTokenSilent({ ...req, account });
+    return res.accessToken;
+  } catch (e) {
+    if (e instanceof InteractionRequiredAuthError) {
+      const res = await msal.acquireTokenPopup({ ...req, account });
+      return res.accessToken;
+    }
+    throw e;
+  }
+}
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const { state } = useAgents(); // ⬅️ Aquí usas el contexto
-  const agents = state.agents;
-  const [agentData, setAgentData] = useState(null);
+  const [accessTokenGraph, setAccessTokenGraph] = useState(null);
+  const [accessTokenApi, setAccessTokenApi] = useState(null);
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [authError, setAuthError] = useState(null);
   const [authLoaded, setAuthLoaded] = useState(false);
-  const [accessTokenMSAL, setAccessToken] = useState(null);
 
-  //console.log(agents)
-  const login = async () => {
+  const { state: agentsState } = useAgents();
+  const [agentData, setAgentData] = useState(null);
+
+  const API_BASE = ENDPOINT_URLS.API;
+
+  const login = useCallback(async () => {
     try {
       await msalInstance.initialize();
 
       let account = msalInstance.getActiveAccount();
-
+      console.log('All account', account)
       if (!account) {
+        // Intenta SSO silencioso, y si no, popup
         try {
-          const response = await msalInstance.ssoSilent(loginRequest);
-          msalInstance.setActiveAccount(response.account);
-          account = response.account;
+          const resp = await msalInstance.ssoSilent(loginRequest);
+          account = resp.account;
+          msalInstance.setActiveAccount(account);
         } catch {
-          const response = await msalInstance.loginPopup(loginRequest);
-          msalInstance.setActiveAccount(response.account);
-          account = response.account;
+          const resp = await msalInstance.loginPopup(loginRequest);
+          account = resp.account;
+          msalInstance.setActiveAccount(account);
+        }
+      }
+      if (!account) throw new Error("No active account after login.");
+      setUser(account);
+
+      // Tokens en paralelo (Graph + API)
+      const [tokenGraph, tokenApi] = await Promise.all([
+        acquire(msalInstance, graphRequest, account).catch(() => null),
+        acquire(msalInstance, apiRequest, account).catch(() => null),
+      ]);
+      setAccessTokenGraph(tokenGraph);
+      setAccessTokenApi(tokenApi);
+
+      console.log('tokens app', {tokenGraph, tokenApi})
+
+      // Foto de perfil (opcional)
+      if (tokenGraph) {
+        try {
+          const resp = await fetch("https://graph.microsoft.com/v1.0/me/photo/$value", {
+            headers: { Authorization: `Bearer ${tokenGraph}` },
+          });
+          if (resp.ok) {
+            const blob = await resp.blob();
+            setProfilePhoto(URL.createObjectURL(blob));
+          }
+        } catch (e) {
+          // opcional: log
         }
       }
 
-      if (account) {
-        setUser(account);
-        await getAccessToken(account);
-        await getProfilePhoto(account);
-      }
-
-    } catch (error) {
-      console.error("Login falló:", error);
-      setAuthError(error.message);
+      setAuthError(null);
+    } catch (err) {
+      console.error("Login failed:", err);
+      setAuthError(err?.message || "Login failed");
     } finally {
       setAuthLoaded(true);
     }
-  };
-
-  const getAccessToken = async (account) => {
-    try {
-      const response = await msalInstance.acquireTokenSilent({ ...loginRequest, account });
-      setAccessToken(response.accessToken); // ← guarda el token
-      return response;
-    } catch (error) {
-      if (error instanceof InteractionRequiredAuthError) {
-        return await msalInstance.acquireTokenPopup({ ...loginRequest, account });
-      } else {
-        throw error;
-      }
-    }
-  };
-
-  const getProfilePhoto = async (accountOverride) => {
-    try {
-      const account = accountOverride || msalInstance.getActiveAccount();
-      if (!account) return;
-
-      const tokenResponse = await getAccessToken(account);
-      const graphResponse = await fetch(
-        "https://graph.microsoft.com/v1.0/me/photo/$value",
-        {
-          headers: {
-            Authorization: `Bearer ${tokenResponse.accessToken}`,
-          },
-        }
-      );
-
-      if (!graphResponse.ok) throw new Error("No se pudo obtener la imagen");
-
-      const blob = await graphResponse.blob();
-      const imageUrl = URL.createObjectURL(blob);
-      setProfilePhoto(imageUrl);
-    } catch (error) {
-      console.warn("Error cargando imagen de perfil:", error.message);
-    }
-  };
-
-  const logout = () => {
-    msalInstance.logoutPopup();
-    setUser(null);
-    setProfilePhoto(null);
-    setAgentData(null);
-  };
-
-  // 🔍 Asociar user con agente del sistema
-  useEffect(() => {
-    if (user && agents?.length > 0) {
-      const match = agents.find(agent => agent.agent_email?.toLowerCase() === user.username?.toLowerCase());
-      setAgentData(match || null);
-    }
-  }, [user, agents]);
-
-  useEffect(() => {
-    login();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return (
-    <AuthContext.Provider value={{
-      user,
-      accessTokenMSAL,
-      profilePhoto,
-      login,
-      logout,
-      authError,
-      authLoaded,
-      agentData,
-      department: agentData?.agent_department || null
-    }}>
-      {children}
-    </AuthContext.Provider>
+  const logout = useCallback(() => {
+    msalInstance.logoutPopup().finally(() => {
+      setUser(null);
+      setAccessTokenApi(null);
+      setAccessTokenGraph(null);
+      setProfilePhoto(null);
+      setAgentData(null);
+      setAuthError(null);
+    });
+  }, []);
+
+  const getAccessTokenForApi = useCallback(
+    async (accountOverride) => {
+      const account = accountOverride || msalInstance.getActiveAccount() || user;
+      if (!account) return null;
+      try {
+        const token = await acquire(msalInstance, apiRequest, account);
+        setAccessTokenApi(token);
+        return token;
+      } catch (e) {
+        setAuthError(e?.message || "Failed to acquire API token");
+        return null;
+      }
+    },
+    [user]
   );
+
+  const callApi = useCallback(
+    async (path, init = {}) => {
+      const account = msalInstance.getActiveAccount() || user;
+      let token = accessTokenApi;
+      if (!token) {
+        token = await getAccessTokenForApi(account);
+        if (!token) throw new Error("No API token available");
+      }
+      const res = await fetch(`${API_BASE}${path}`, {
+        ...init,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          ...(init.headers || {}),
+        },
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`API ${res.status}: ${text || res.statusText}`);
+      }
+      const ct = res.headers.get("content-type") || "";
+      return ct.includes("application/json") ? await res.json() : undefined;
+    },
+    [accessTokenApi, user, getAccessTokenForApi, API_BASE]
+  );
+
+  useEffect(() => { login(); }, [login]);
+
+  useEffect(() => {
+    if (!user) {
+      setAgentData(null);
+      return;
+    }
+    const list = (agentsState && agentsState.agents) ? agentsState.agents : [];
+    if (!Array.isArray(list) || list.length === 0) {
+      setAgentData(null);
+      return;
+    }
+    const mail = (user.username ||
+      user.idTokenClaims?.preferred_username ||
+      "").toLowerCase();
+    const match = list.find(a => (a.agent_email || "").toLowerCase() === mail);
+    setAgentData(match || null);
+  }, [user, agentsState]);
+
+  const value = useMemo(() => ({
+    user,
+    accessTokenGraph,
+    accessTokenApi,
+    profilePhoto,
+    agentData,
+    department: agentData?.agent_department || null,
+    authLoaded,
+    authError,
+    login,
+    logout,
+    getAccessTokenForApi,
+    callApi,
+  }), [
+    user,
+    accessTokenGraph,
+    accessTokenApi,
+    profilePhoto,
+    agentData,
+    authLoaded,
+    authError,
+    login,
+    logout,
+    getAccessTokenForApi,
+    callApi,
+  ]);
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
+};

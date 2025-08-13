@@ -5,9 +5,9 @@ import {
   getTicketById
 } from '../apiTickets';
 
-export async function handleStatusChange({ dispatch, setLoading, ticketId, agentEmail, newStatus, setStatus, setSuccessMessage, setErrorMessage, setSuccessOpen, setErrorOpen }) {
+export async function handleStatusChange({ dispatch, setLoading, ticketId, newStatus, setStatus, setSuccessMessage, setErrorMessage, setSuccessOpen, setErrorOpen }) {
   setLoading(true);
-  const result = await changeStatus(dispatch, setLoading, ticketId, agentEmail, newStatus);
+  const result = await changeStatus(dispatch, setLoading, ticketId, newStatus);
   if (result.success) {
     setSuccessMessage('This ticket start to be monitored from now');
     setStatus(newStatus);
@@ -20,15 +20,14 @@ export async function handleStatusChange({ dispatch, setLoading, ticketId, agent
   return result
 }
 
-export async function handleAddNoteHandler({ dispatch, setLoading, ticketId, agentEmail, noteContent, setNotes, setNoteContent, setOpenNoteDialog, setSuccessMessage, setSuccessOpen, setErrorMessage, setErrorOpen }) {
+export async function handleAddNoteHandler({ dispatch, setLoading, ticketId, noteContent, setNotes, setNoteContent, setOpenNoteDialog, setSuccessMessage, setSuccessOpen, setErrorMessage, setErrorOpen }) {
   if (!noteContent.trim()) return;
   const newNote = [{
-    agent_email: agentEmail,
-    event_type: 'user_note',
-    content: noteContent.trim(),
+    event_type: 'quality_note',
+    event: noteContent.trim(),
     datetime: new Date().toISOString()
   }];
-  const result = await addNotes(dispatch, setLoading, ticketId, agentEmail, newNote);
+  const result = await addNotes(dispatch, setLoading, ticketId, newNote);
   if (result.success) {
     //setNotes((prev) => [...prev, ...newNote]);
     setNoteContent('');
@@ -40,7 +39,6 @@ export async function handleAddNoteHandler({ dispatch, setLoading, ticketId, age
     setErrorOpen(true);
   }
 
-  console.log(result)
   return result;
 }
 
