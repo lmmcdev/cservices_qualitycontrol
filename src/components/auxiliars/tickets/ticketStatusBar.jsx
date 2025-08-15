@@ -4,7 +4,7 @@ import {
   Typography,
 } from '@mui/material';
 
-import { getStatusColor } from '../utils/js/statusColors';
+import { getStatusColor } from '../../../utils/js/statusColors';
 
 const TicketStatusBar = ({ currentStatus }) => {
 

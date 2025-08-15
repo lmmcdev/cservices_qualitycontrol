@@ -3,20 +3,20 @@ import {
   Box, Typography, Paper, Grid, Card, CardContent, IconButton, Tooltip
 } from '@mui/material';
 import InsertLinkIcon from '@mui/icons-material/InsertLink';
-import TicketStatusBar from '../components/ticketStatusBar';
+import TicketStatusBar from '../components/auxiliars/tickets/ticketStatusBar.jsx';
 import AlertSnackbar from '../components/auxiliars/alertSnackbar';
 import { useLoading } from '../providers/loadingProvider';
-import TicketNotes from '../components/ticketNotes';
-import TicketCollaborators from '../components/ticketCollaborators';
+import TicketNotes from '../components/auxiliars/tickets/ticketNotes.jsx';
+import TicketCollaborators from '../components/auxiliars/tickets/ticketCollaborators.jsx';
 import TicketAudio from '../components/auxiliars/tickets/ticketAudio.jsx';
 import AddNoteDialog from '../components/dialogs/addNotesDialog';
 import TicketAssignee from '../components/auxiliars/tickets/ticketAssignee.jsx';
 import PatientProfileDialog from '../components/dialogs/patientProfileDialog';
-import TicketWorkTime from '../components/ticketWorkTime';
-import { TicketIndicators } from '../components/ticketIndicators';
-import TicketLinkOptions from '../components/ticketLinkOptions';
+import TicketWorkTime from '../components/auxiliars/tickets/ticketWorkTime.js';
+import { TicketIndicators } from '../components/auxiliars/tickets/ticketIndicators.jsx';
+import TicketLinkOptions from '../components/auxiliars/tickets/ticketLinkOptions.jsx';
 import { useTickets } from '../context/ticketsContext.js';
-import QualityButton from '../components/components/fields/qualityButton.js';
+import QualityButton from '../components/fields/qualityButton.js';
 import { handleStatusChange, handleAddNoteHandler } from '../utils/js/ticketActions.js';
 import { getStatusColor } from '../utils/js/statusColors.js';
 

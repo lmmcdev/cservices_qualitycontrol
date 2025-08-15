@@ -1,6 +1,6 @@
 import React from 'react';
 import { Avatar } from '@mui/material';
-import { Iconify } from './auxiliars/icons';
+import { Iconify } from '../icons';
 
 const pickIconName = (taxonomyDesc = '') => {
   const t = taxonomyDesc?.toString().toLowerCase().trim();

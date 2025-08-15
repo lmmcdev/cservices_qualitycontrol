@@ -24,7 +24,7 @@ import { emailToFullName } from '../utils/js/emailToFullName.js';
 import StatusFilterBoxes from '../components/statusFilterBoxes';
 import { SortAscending, SortDescending } from 'phosphor-react';
 import { getStatusColor } from '../utils/js/statusColors.js';
-import { TicketIndicators } from '../components/ticketIndicators';
+import { TicketIndicators } from '../components/auxiliars/tickets/ticketIndicators.jsx';
 import { useInitTicketData } from '../components/hooks/useTicketsData.js';
 import DialogFullScreenRouter from '../components/dialogs/dialogFullScreenRouter.js';
 import { handlerGetTicketByIds } from '../utils/js/ticketActions.js';

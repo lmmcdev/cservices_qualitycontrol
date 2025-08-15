@@ -9,8 +9,8 @@ import {
   IconButton,
   Tooltip
 } from '@mui/material';
-import { getUserPhotoByEmail } from '../utils/graphHelper'; // asegúrate del nombre correcto del archivo
-import { icons } from './auxiliars/icons';
+import { getUserPhotoByEmail } from '../../../utils/graphHelper'; // asegúrate del nombre correcto del archivo
+import { icons } from '../icons';
 import { Icon } from '@iconify/react';
 
 const statusColors = {
