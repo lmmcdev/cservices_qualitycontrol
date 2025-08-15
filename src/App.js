@@ -8,7 +8,7 @@ import AppProviders from './providers/appProvider';
 import AppRoutes from './routes/appRoutes';
 import { setupFetchAuth } from './setupFetchAuth';
 
-//import { useInitAppData } from './components/hooks/useInitAppData';
+import { useInitAgentData } from './components/hooks/useInitAgentData';
 
 import './App.css';
 
@@ -32,7 +32,7 @@ function AppContent() {
     setAgentEmail('esteban.ulloa@clmmail.com');
   }, []);
 
-  //useInitAppData();
+  useInitAgentData();
 
 
   return (

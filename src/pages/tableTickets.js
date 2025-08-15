@@ -25,12 +25,12 @@ import StatusFilterBoxes from '../components/statusFilterBoxes';
 import { SortAscending, SortDescending } from 'phosphor-react';
 import { getStatusColor } from '../utils/js/statusColors.js';
 import { TicketIndicators } from '../components/ticketIndicators';
-import { useInitAppData } from '../components/hooks/useInitAppData';
+import { useInitTicketData } from '../components/hooks/useTicketsData.js';
 import DialogFullScreenRouter from '../components/dialogs/dialogFullScreenRouter.js';
 import { handlerGetTicketByIds } from '../utils/js/ticketActions.js';
 
 export default function TableTickets() {
-  useInitAppData();
+  useInitTicketData();
   const { filters } = useFilters();
   const { state } = useTickets();
 
@@ -41,11 +41,11 @@ export default function TableTickets() {
   const [sortDirection, setSortDirection] = useState('desc');
   const [open, setOpen] = useState(false);
 
-
   useEffect(() => {
     setPage(0);
   }, [selectedStatus]);
 
+  console.log(state)
 
   const validTickets = Array.isArray(state.tickets) ? state.tickets : [];
   const filteredRows = validTickets.filter((row) => {
