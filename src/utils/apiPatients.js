@@ -59,11 +59,17 @@ export const searchPatients = async (query, filter, page = 1, size = 50, accessT
             throw new Error(data.message || 'Error fetching tickets');
         }
         // Devuelve solo los datos
-        return { success: true, message: data || 'Updated successfully' };
-    } catch (err) {
-        const message = err.message || 'Something went wrong';
-        return { success: false, message };
-    }
+        return {
+          success: true,
+          message: {
+            items: data.hits || [],
+            continuationToken: data.continuationToken || null,
+          },
+        };
+  } catch (err) {
+    const message = err.message || 'Something went wrong';
+    return { success: false, message };
+  }
 };
 
 

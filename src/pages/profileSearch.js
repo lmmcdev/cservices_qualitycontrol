@@ -349,16 +349,12 @@ export default function ProfileSearch() {
             )
           )}
 
-          {selectedView === 'patients-search' && (
-            patientTickets.length > 0 ? (
+         {selectedView === 'patients-search' && (
+            <>
               <TicketListUI
                 tickets={patientTickets}
               />
-            ) : (
-              <Typography color="#5B5F7B">
-                Select a patient from the left panel.
-              </Typography>
-            )
+            </>
           )}
 
           {/**
