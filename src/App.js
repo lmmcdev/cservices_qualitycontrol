@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Box } from '@mui/material';
 import { BrowserRouter } from 'react-router-dom';
 
@@ -7,8 +7,6 @@ import { BrowserRouter } from 'react-router-dom';
 import AppProviders from './providers/appProvider';
 import AppRoutes from './routes/appRoutes';
 import { setupFetchAuth } from './setupFetchAuth';
-
-import { useInitAgentData } from './components/hooks/useInitAgentData';
 
 import './App.css';
 
@@ -18,27 +16,15 @@ function AppContent() {
   }, []); // ← una sola vez
 
 
-  const [agentEmail, setAgentEmail] = useState('');
   const [filters, setFilters] = useState({
     date: '',
     assignedAgents: [],
     callerIds: [],
   });
-  //const { state, } = useAgents();
-  //const agent = state.agents.find(a => a.agent_email === agentEmail );
-  
-  //temporal retirar react msal
-  useEffect(() => {
-    setAgentEmail('esteban.ulloa@clmmail.com');
-  }, []);
-
-  useInitAgentData();
-
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', bgcolor: '#f8fafd' }}>
       <AppRoutes
-        agentEmail={agentEmail}
         filters={filters}
         setFilters={setFilters}
       />
