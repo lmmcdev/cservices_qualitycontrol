@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Paper, Grid, Card, CardContent, IconButton, Tooltip
 } from '@mui/material';
-import InsertLinkIcon from '@mui/icons-material/InsertLink';
 import TicketStatusBar from '../components/auxiliars/tickets/ticketStatusBar.jsx';
 import AlertSnackbar from '../components/auxiliars/alertSnackbar';
 import { useLoading } from '../providers/loadingProvider';
@@ -19,6 +18,8 @@ import { useTickets } from '../context/ticketsContext.js';
 import QualityButton from '../components/fields/qualityButton.js';
 import { handleStatusChange, handleAddNoteHandler } from '../utils/js/ticketActions.js';
 import { getStatusColor } from '../utils/js/statusColors.js';
+import MergeIcon from '@mui/icons-material/Merge';
+
 
 export default function EditTicket({ ticket: initialTicket }) {
   const { setLoading } = useLoading();
@@ -63,7 +64,7 @@ export default function EditTicket({ ticket: initialTicket }) {
       setQualityControl(result.message.responseData.quality_control);
       setNotes(result.message.responseData.notes);
     }
-  }, [dispatch, setLoading, ticket.id, qualityControl]);
+  }, [dispatch, setLoading, ticket?.id, qualityControl]);
 
 
    const handleAddNote = useCallback(async () => {
@@ -127,9 +128,10 @@ export default function EditTicket({ ticket: initialTicket }) {
                     </Tooltip>
                   </Box>
 
-                  {ticket.linked_patient_snapshot?.Name ? (
+                  <Typography><strong>Patient Name:</strong><br />
+                  {ticket.linked_patient_snapshot?.DOB ? (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <InsertLinkIcon color="success" />
+                      <MergeIcon color="success" />
                       <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#2e7d32' }}>
                         {ticket.linked_patient_snapshot.Name}
                       </Typography>
@@ -137,8 +139,21 @@ export default function EditTicket({ ticket: initialTicket }) {
                   ) : (
                     <Typography>{ticket.patient_name}</Typography>
                   )}
+                  </Typography>
 
-                  <Typography><strong>Patient DOB:</strong><br />{ticket.linked_patient_snapshot?.DOB || patientDob}</Typography>
+                <Typography><strong>Patient DOB:</strong><br />
+                  {ticket.linked_patient_snapshot?.DOB ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <MergeIcon color="success" />
+                      <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: '#2e7d32' }}>
+                        {ticket.linked_patient_snapshot.DOB}
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Typography>{ticket.patient_dob}</Typography>
+                  )}
+                  </Typography>
+
                   <Typography><strong>Phone:</strong><br />{ticket.phone}</Typography>
                   <Typography><strong>Callback Number:</strong><br />{ticket.callback_number}</Typography>
                 </CardContent>

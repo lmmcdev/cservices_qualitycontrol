@@ -13,9 +13,9 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TableRow,
+  TableRow, IconButton,
   TablePagination,
-  Tooltip
+  Tooltip, Typography
 } from '@mui/material';
 import { icons } from '../components/auxiliars/icons.js';
 //import { useNavigate } from 'react-router-dom';
@@ -28,6 +28,8 @@ import { TicketIndicators } from '../components/auxiliars/tickets/ticketIndicato
 import { useInitTicketData } from '../components/hooks/useTicketsData.js';
 import DialogFullScreenRouter from '../components/dialogs/dialogFullScreenRouter.js';
 import { handlerGetTicketByIds } from '../utils/js/ticketActions.js';
+import MergeIcon from '@mui/icons-material/Merge';
+import { toMMDDYYYY } from '../utils/js/formatDateToMMDDYYY.js';
 
 export default function TableTickets() {
   useInitTicketData();
@@ -246,8 +248,43 @@ export default function TableTickets() {
                         <TicketIndicators ai_data={row.aiClassification} showTooltip iconsOnly />
                       </TableCell>
                       <TableCell>{row.caller_id}</TableCell>
-                      <TableCell>{row.patient_name}</TableCell>
-                      <TableCell>{row.patient_dob}</TableCell>
+                      {row.linked_patient_snapshot?.Name && (
+                        <TableCell>
+                          <Box display="flex" alignItems="center" gap={1}>
+                             <Tooltip title="MDVita patient">
+                              <IconButton size="small" color="success">
+                                <MergeIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Typography variant="small" sx={{ fontWeight: 'normal', color: '#2e7d32' }}>
+                              {row.linked_patient_snapshot.Name}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                      ) || (
+                        <TableCell>
+                              {row.patient_name}
+                        </TableCell>
+                      )}
+
+                      {row.linked_patient_snapshot?.DOB && (
+                        <TableCell>
+                           <Box display="flex" alignItems="left" gap={1}>
+                             <Tooltip title="MDVita patient">
+                              <IconButton size="small" color="success">
+                                <MergeIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Typography variant="small" sx={{ fontWeight: 'normal', color: '#2e7d32' }}>
+                              {toMMDDYYYY(row.linked_patient_snapshot.DOB.split('T')[0])}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                      ) || (
+                        <TableCell>
+                          {toMMDDYYYY(row.patient_dob)}
+                        </TableCell>
+                      )}
                       <TableCell>{row.phone ? formatPhone(row.phone) : 'N/A'}</TableCell>
                       <TableCell>{row.creation_date}</TableCell>
                       <TableCell>{emailToFullName(row.agent_assigned)}</TableCell>
