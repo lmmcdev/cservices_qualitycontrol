@@ -248,7 +248,7 @@ export default function TableTickets() {
                         <TicketIndicators ai_data={row.aiClassification} showTooltip iconsOnly />
                       </TableCell>
                       <TableCell>{row.caller_id}</TableCell>
-                      {row.linked_patient_snapshot?.Name && (
+                      {row.linked_patient_snapshot?.Name ? (
                         <TableCell>
                           <Box display="flex" alignItems="center" gap={1}>
                              <Tooltip title="MDVita patient">
@@ -261,13 +261,13 @@ export default function TableTickets() {
                             </Typography>
                           </Box>
                         </TableCell>
-                      ) || (
+                      ) : (
                         <TableCell>
                               {row.patient_name}
                         </TableCell>
                       )}
 
-                      {row.linked_patient_snapshot?.DOB && (
+                      {row.linked_patient_snapshot?.DOB ? (
                         <TableCell>
                            <Box display="flex" alignItems="left" gap={1}>
                              <Tooltip title="MDVita patient">
@@ -280,7 +280,7 @@ export default function TableTickets() {
                             </Typography>
                           </Box>
                         </TableCell>
-                      ) || (
+                      ) : (
                         <TableCell>
                           {toMMDDYYYY(row.patient_dob)}
                         </TableCell>
