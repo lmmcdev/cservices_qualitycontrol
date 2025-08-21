@@ -1,17 +1,20 @@
-// src/context/authContext.jsx
-import React, {
-  createContext, useContext, useEffect, useMemo, useState, useCallback, useRef
-} from "react";
+// authContext.jsx
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { PublicClientApplication, InteractionRequiredAuthError } from "@azure/msal-browser";
-import { useAgents } from "./agentsContext";
-import { ENDPOINT_URLS } from "../utils/js/constants";
-import { msalConfig, apiScopes, graphScopes, loginRequest, SILENT_REDIRECT_URI } from "../utils/azureAuth";
+import { msalConfig, loginRequest, graphScopes, apiScopes } from "../utils/azureAuth";
 
-export const msalInstance = new PublicClientApplication(msalConfig);
+export const msalInstance = new PublicClientApplication({
+  ...msalConfig,
+  auth: {
+    ...msalConfig.auth,
+    // Evita que MSAL “regrese” a la URL original tras redirect (reduce hash vacíos)
+    navigateToLoginRequestUrl: false,
+    // Si NO estás embebiendo tu app en un iframe (Teams/Outlook), déjalo en false
+    // allowRedirectInIframe: false (valor por defecto)
+  },
+});
+
 const AuthContext = createContext(undefined);
-
-const graphRequest = { scopes: graphScopes, redirectUri: SILENT_REDIRECT_URI };
-const apiRequest   = { scopes: apiScopes,   redirectUri: SILENT_REDIRECT_URI };
 
 async function acquire(msal, req, account) {
   try {
@@ -34,198 +37,91 @@ export const AuthProvider = ({ children }) => {
   const [authError, setAuthError] = useState(null);
   const [authLoaded, setAuthLoaded] = useState(false);
 
-  const { state: agentsState } = useAgents();
-  const [agentData, setAgentData] = useState(null);
-  const bootRef = useRef(false);
+  const startup = useCallback(async () => {
+    await msalInstance.initialize();
 
-  const API_BASE = ENDPOINT_URLS.API;
+    // 1) Procesa posibles respuestas de redirect (si alguna parte de tu app lo usa)
+    const redirectRes = await msalInstance.handleRedirectPromise().catch(() => null);
 
-  // --- Bootstrapping MSAL: initialize + handleRedirectPromise (limpia hashes) ---
-  useEffect(() => {
-    if (bootRef.current) return;
-    bootRef.current = true;
+    // 2) Recupera/establece cuenta activa desde cache o redirect
+    let account =
+      redirectRes?.account ||
+      msalInstance.getActiveAccount() ||
+      msalInstance.getAllAccounts()[0];
 
-    let mounted = true;
-    (async () => {
+    // 3) Si NO hay cuenta -> ve DIRECTO a login interactivo (NO ssoSilent)
+    if (!account) {
+      const loginRes = await msalInstance.loginPopup(loginRequest);
+      account = loginRes.account;
+    }
+
+    msalInstance.setActiveAccount(account);
+    setUser(account);
+
+    // 4) Tokens (silencioso con fallback a popup)
+    const [graphToken, apiToken] = await Promise.all([
+      acquire(msalInstance, { scopes: graphScopes }, account).catch(() => null),
+      acquire(msalInstance, { scopes: apiScopes }, account).catch(() => null),
+    ]);
+    setAccessTokenGraph(graphToken);
+    setAccessTokenApi(apiToken);
+
+    // 5) Foto (opcional)
+    if (graphToken) {
       try {
-        await msalInstance.initialize();
-        // Procesa cualquier respuesta de redirect ANTES de montar la app
-        await msalInstance.handleRedirectPromise().catch((e) => {
-          // Si hubo un hash residual, aquí lo capturas sin romper la app
-          console.warn('handleRedirectPromise error:', e?.message || e);
+        const resp = await fetch("https://graph.microsoft.com/v1.0/me/photo/$value", {
+          headers: { Authorization: `Bearer ${graphToken}` },
         });
-
-        // Recupera cuenta activa o cualquiera cacheada
-        const account =
-          msalInstance.getActiveAccount() ||
-          msalInstance.getAllAccounts()[0] ||
-          null;
-
-        if (mounted && account) {
-          msalInstance.setActiveAccount(account);
-          setUser(account);
-
-          // tokens iniciales (opcional)
-          const [tg, ta] = await Promise.all([
-            acquire(msalInstance, graphRequest, account).catch(() => null),
-            acquire(msalInstance, apiRequest,   account).catch(() => null),
-          ]);
-          setAccessTokenGraph(tg);
-          setAccessTokenApi(ta);
-
-          console.log("Access tokens acquired:", { tg, ta }); 
-
-          // foto (opcional)
-          if (tg) {
-            try {
-              const resp = await fetch("https://graph.microsoft.com/v1.0/me/photo/$value", {
-                headers: { Authorization: `Bearer ${tg}` },
-              });
-              if (resp.ok) {
-                const blob = await resp.blob();
-                setProfilePhoto(URL.createObjectURL(blob));
-              }
-            } catch {}
-          }
+        if (resp.ok) {
+          const blob = await resp.blob();
+          setProfilePhoto(URL.createObjectURL(blob));
         }
-      } catch (err) {
-        console.error("MSAL bootstrap failed:", err);
-        setAuthError(err?.message || "Auth bootstrap failed");
-      } finally {
-        if (mounted) setAuthLoaded(true);
-      }
-    })();
-
-    return () => { mounted = false; };
-  }, []);
-
-  // --- Login interactivo (popup) ---
-  const login = useCallback(async () => {
-    try {
-      const resp = await msalInstance.loginPopup(loginRequest);
-      const account = resp.account;
-      if (!account) throw new Error("No active account after login.");
-      msalInstance.setActiveAccount(account);
-      setUser(account);
-
-      const [tokenGraph, tokenApi] = await Promise.all([
-        acquire(msalInstance, graphRequest, account).catch(() => null),
-        acquire(msalInstance, apiRequest,   account).catch(() => null),
-      ]);
-      setAccessTokenGraph(tokenGraph);
-      setAccessTokenApi(tokenApi);
-
-      if (tokenGraph) {
-        try {
-          const r = await fetch("https://graph.microsoft.com/v1.0/me/photo/$value", {
-            headers: { Authorization: `Bearer ${tokenGraph}` },
-          });
-          if (r.ok) {
-            const blob = await r.blob();
-            setProfilePhoto(URL.createObjectURL(blob));
-          }
-        } catch {}
-      }
-
-      setAuthError(null);
-    } catch (err) {
-      console.error("Login failed:", err);
-      setAuthError(err?.message || "Login failed");
+      } catch {}
     }
   }, []);
 
-  const logout = useCallback(() => {
-    msalInstance.logoutPopup().finally(() => {
-      setUser(null);
-      setAccessTokenApi(null);
-      setAccessTokenGraph(null);
-      setProfilePhoto(null);
-      setAgentData(null);
-      setAuthError(null);
-    });
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await startup();
+        setAuthError(null);
+      } catch (e) {
+        console.error("Auth startup failed:", e);
+        if (!cancelled) setAuthError(e?.message || "Authentication failed");
+      } finally {
+        if (!cancelled) setAuthLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [startup]);
+
+  const login = useCallback(async () => {
+    // login bajo demanda (también interactivo)
+    const res = await msalInstance.loginPopup(loginRequest);
+    msalInstance.setActiveAccount(res.account);
+    setUser(res.account);
   }, []);
 
-  // --- Token para tu API on-demand ---
-  const getAccessTokenForApi = useCallback(
-    async (accountOverride) => {
-      const account = accountOverride || msalInstance.getActiveAccount() || user;
-      if (!account) return null;
-      try {
-        const token = await acquire(msalInstance, apiRequest, account);
-        setAccessTokenApi(token);
-        return token;
-      } catch (e) {
-        setAuthError(e?.message || "Failed to acquire API token");
-        return null;
-      }
-    },
-    [user]
-  );
-
-  // --- Helper para llamar a tu API con Bearer ---
-  const callApi = useCallback(
-    async (path, init = {}) => {
-      const account = msalInstance.getActiveAccount() || user;
-      let token = accessTokenApi;
-      if (!token) {
-        token = await getAccessTokenForApi(account);
-        if (!token) throw new Error("No API token available");
-      }
-      const res = await fetch(`${API_BASE}${path}`, {
-        ...init,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          ...(init.headers || {}),
-        },
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`API ${res.status}: ${text || res.statusText}`);
-      }
-      const ct = res.headers.get("content-type") || "";
-      return ct.includes("application/json") ? await res.json() : undefined;
-    },
-    [accessTokenApi, user, getAccessTokenForApi, API_BASE]
-  );
-
-  // --- Vincular datos de agentes a partir del correo ---
-  useEffect(() => {
-    if (!user) { setAgentData(null); return; }
-    const list = (agentsState && agentsState.agents) ? agentsState.agents : [];
-    if (!Array.isArray(list) || list.length === 0) { setAgentData(null); return; }
-
-    const mail = (user.username || user.idTokenClaims?.preferred_username || "").toLowerCase();
-    const match = list.find(a => (a.agent_email || "").toLowerCase() === mail);
-    setAgentData(match || null);
-  }, [user, agentsState]);
+  const logout = useCallback(async () => {
+    await msalInstance.logoutPopup();
+    setUser(null);
+    setAccessTokenApi(null);
+    setAccessTokenGraph(null);
+    setProfilePhoto(null);
+    setAuthError(null);
+  }, []);
 
   const value = useMemo(() => ({
     user,
     accessTokenGraph,
     accessTokenApi,
     profilePhoto,
-    agentData,
-    department: agentData?.agent_department || null,
     authLoaded,
     authError,
     login,
     logout,
-    getAccessTokenForApi,
-    callApi,
-  }), [
-    user,
-    accessTokenGraph,
-    accessTokenApi,
-    profilePhoto,
-    agentData,
-    authLoaded,
-    authError,
-    login,
-    logout,
-    getAccessTokenForApi,
-    callApi,
-  ]);
+  }), [user, accessTokenGraph, accessTokenApi, profilePhoto, authLoaded, authError, login, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
