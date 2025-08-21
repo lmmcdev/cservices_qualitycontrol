@@ -1,4 +1,7 @@
 // src/authConfig.js
+const origin = typeof window !== 'undefined' ? window.location.origin : '';
+export const SILENT_REDIRECT_URI = `${origin}/auth/silent-redirect.html`;
+
 export const msalConfig = {
     auth: {
       clientId: "08e5a940-4349-45b0-94ce-46505e0a99a3", // 👈 desde Azure Portal
@@ -11,6 +14,9 @@ export const msalConfig = {
       cacheLocation: "localStorage", // o localStorage
       storeAuthStateInCookie: false,
     },
+    system: {
+      allowRedirectInIframe: true          // para iframes (sso, O365, etc.)
+    }
   };
   
   // Scopes de tu API expuesta (puedes añadir más si creas otros)

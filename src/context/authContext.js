@@ -1,27 +1,17 @@
+// src/context/authContext.jsx
 import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  useCallback,
+  createContext, useContext, useEffect, useMemo, useState, useCallback, useRef
 } from "react";
-import {
-  PublicClientApplication,
-  InteractionRequiredAuthError,
-} from "@azure/msal-browser";
+import { PublicClientApplication, InteractionRequiredAuthError } from "@azure/msal-browser";
 import { useAgents } from "./agentsContext";
 import { ENDPOINT_URLS } from "../utils/js/constants";
-
-// ⬇️ usa SIEMPRE la config centralizada
-import { msalConfig, apiScopes, graphScopes, loginRequest } from "../utils/azureAuth";
+import { msalConfig, apiScopes, graphScopes, loginRequest, SILENT_REDIRECT_URI } from "../utils/azureAuth";
 
 export const msalInstance = new PublicClientApplication(msalConfig);
-
 const AuthContext = createContext(undefined);
 
-const graphRequest = { scopes: graphScopes };
-const apiRequest = { scopes: apiScopes };
+const graphRequest = { scopes: graphScopes, redirectUri: SILENT_REDIRECT_URI };
+const apiRequest   = { scopes: apiScopes,   redirectUri: SILENT_REDIRECT_URI };
 
 async function acquire(msal, req, account) {
   try {
@@ -46,61 +36,101 @@ export const AuthProvider = ({ children }) => {
 
   const { state: agentsState } = useAgents();
   const [agentData, setAgentData] = useState(null);
+  const bootRef = useRef(false);
 
   const API_BASE = ENDPOINT_URLS.API;
 
+  // --- Bootstrapping MSAL: initialize + handleRedirectPromise (limpia hashes) ---
+  useEffect(() => {
+    if (bootRef.current) return;
+    bootRef.current = true;
+
+    let mounted = true;
+    (async () => {
+      try {
+        await msalInstance.initialize();
+        // Procesa cualquier respuesta de redirect ANTES de montar la app
+        await msalInstance.handleRedirectPromise().catch((e) => {
+          // Si hubo un hash residual, aquí lo capturas sin romper la app
+          console.warn('handleRedirectPromise error:', e?.message || e);
+        });
+
+        // Recupera cuenta activa o cualquiera cacheada
+        const account =
+          msalInstance.getActiveAccount() ||
+          msalInstance.getAllAccounts()[0] ||
+          null;
+
+        if (mounted && account) {
+          msalInstance.setActiveAccount(account);
+          setUser(account);
+
+          // tokens iniciales (opcional)
+          const [tg, ta] = await Promise.all([
+            acquire(msalInstance, graphRequest, account).catch(() => null),
+            acquire(msalInstance, apiRequest,   account).catch(() => null),
+          ]);
+          setAccessTokenGraph(tg);
+          setAccessTokenApi(ta);
+
+          console.log("Access tokens acquired:", { tg, ta }); 
+
+          // foto (opcional)
+          if (tg) {
+            try {
+              const resp = await fetch("https://graph.microsoft.com/v1.0/me/photo/$value", {
+                headers: { Authorization: `Bearer ${tg}` },
+              });
+              if (resp.ok) {
+                const blob = await resp.blob();
+                setProfilePhoto(URL.createObjectURL(blob));
+              }
+            } catch {}
+          }
+        }
+      } catch (err) {
+        console.error("MSAL bootstrap failed:", err);
+        setAuthError(err?.message || "Auth bootstrap failed");
+      } finally {
+        if (mounted) setAuthLoaded(true);
+      }
+    })();
+
+    return () => { mounted = false; };
+  }, []);
+
+  // --- Login interactivo (popup) ---
   const login = useCallback(async () => {
     try {
-      await msalInstance.initialize();
-
-      let account = msalInstance.getActiveAccount();
-      console.log('All account', account)
-      if (!account) {
-        // Intenta SSO silencioso, y si no, popup
-        try {
-          const resp = await msalInstance.ssoSilent(loginRequest);
-          account = resp.account;
-          msalInstance.setActiveAccount(account);
-        } catch {
-          const resp = await msalInstance.loginPopup(loginRequest);
-          account = resp.account;
-          msalInstance.setActiveAccount(account);
-        }
-      }
+      const resp = await msalInstance.loginPopup(loginRequest);
+      const account = resp.account;
       if (!account) throw new Error("No active account after login.");
+      msalInstance.setActiveAccount(account);
       setUser(account);
 
-      // Tokens en paralelo (Graph + API)
       const [tokenGraph, tokenApi] = await Promise.all([
         acquire(msalInstance, graphRequest, account).catch(() => null),
-        acquire(msalInstance, apiRequest, account).catch(() => null),
+        acquire(msalInstance, apiRequest,   account).catch(() => null),
       ]);
       setAccessTokenGraph(tokenGraph);
       setAccessTokenApi(tokenApi);
 
-      console.log('tokens app', {tokenGraph, tokenApi})
-
-      // Foto de perfil (opcional)
       if (tokenGraph) {
         try {
-          const resp = await fetch("https://graph.microsoft.com/v1.0/me/photo/$value", {
+          const r = await fetch("https://graph.microsoft.com/v1.0/me/photo/$value", {
             headers: { Authorization: `Bearer ${tokenGraph}` },
           });
-          if (resp.ok) {
-            const blob = await resp.blob();
+          if (r.ok) {
+            const blob = await r.blob();
             setProfilePhoto(URL.createObjectURL(blob));
           }
-        } catch (e) {
-          // opcional: log
-        }
+        } catch {}
       }
 
       setAuthError(null);
     } catch (err) {
       console.error("Login failed:", err);
       setAuthError(err?.message || "Login failed");
-    } finally {
-      setAuthLoaded(true);
     }
   }, []);
 
@@ -115,6 +145,7 @@ export const AuthProvider = ({ children }) => {
     });
   }, []);
 
+  // --- Token para tu API on-demand ---
   const getAccessTokenForApi = useCallback(
     async (accountOverride) => {
       const account = accountOverride || msalInstance.getActiveAccount() || user;
@@ -131,6 +162,7 @@ export const AuthProvider = ({ children }) => {
     [user]
   );
 
+  // --- Helper para llamar a tu API con Bearer ---
   const callApi = useCallback(
     async (path, init = {}) => {
       const account = msalInstance.getActiveAccount() || user;
@@ -157,21 +189,13 @@ export const AuthProvider = ({ children }) => {
     [accessTokenApi, user, getAccessTokenForApi, API_BASE]
   );
 
-  useEffect(() => { login(); }, [login]);
-
+  // --- Vincular datos de agentes a partir del correo ---
   useEffect(() => {
-    if (!user) {
-      setAgentData(null);
-      return;
-    }
+    if (!user) { setAgentData(null); return; }
     const list = (agentsState && agentsState.agents) ? agentsState.agents : [];
-    if (!Array.isArray(list) || list.length === 0) {
-      setAgentData(null);
-      return;
-    }
-    const mail = (user.username ||
-      user.idTokenClaims?.preferred_username ||
-      "").toLowerCase();
+    if (!Array.isArray(list) || list.length === 0) { setAgentData(null); return; }
+
+    const mail = (user.username || user.idTokenClaims?.preferred_username || "").toLowerCase();
     const match = list.find(a => (a.agent_email || "").toLowerCase() === mail);
     setAgentData(match || null);
   }, [user, agentsState]);
