@@ -89,6 +89,37 @@ export const addNotes = async (dispatch, setLoading, ticketId, note) => {
 };
 
 
+// add agent note to ticket
+export const addQcData = async (dispatch, setLoading, ticketId, { rubric, outcome, score }) => {
+  console.log(ticketId, { rubric, outcome, score });
+  try {
+    const response = await fetch(`${ENDPOINT_URLS.API}/cosmoUpsertQc`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        ticketId,
+        rubric,
+        outcome,
+        score,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Error updating notes');
+    }
+
+    return { success: true, message: data };
+  } catch (err) {
+    const message = err.message || 'Something went wrong';
+    dispatch({ type: 'SET_PATIENT_NAME_ERROR', payload: message });
+    return { success: false, message };
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 
 
 export const searchTickets = async ({ query, page, size, filter }, accessToken) => {
