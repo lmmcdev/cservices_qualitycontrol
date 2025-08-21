@@ -19,6 +19,7 @@ import QualityButton from '../components/fields/qualityButton.js';
 import { handleStatusChange, handleAddNoteHandler } from '../utils/js/ticketActions.js';
 import { getStatusColor } from '../utils/js/statusColors.js';
 import MergeIcon from '@mui/icons-material/Merge';
+import EmptyState from '../components/auxiliars/emptyState.js';
 
 
 export default function EditTicket({ ticket: initialTicket }) {
@@ -85,12 +86,12 @@ export default function EditTicket({ ticket: initialTicket }) {
         if (result.success) {
           setNotes(result.message.ticket?.notes)
         }
-    }, [dispatch, setLoading, ticket.id, noteContent, setNotes, setNoteContent, setOpenNoteDialog, setStatus]);
+    }, [dispatch, setLoading, ticket?.id, noteContent, setNotes, setNoteContent, setOpenNoteDialog, setStatus]);
     
 
   useEffect(() => {
-    setQualityControl(ticket.quality_control);
-  }, [ticket.quality_control]);
+    setQualityControl(ticket?.quality_control);
+  }, [ticket?.quality_control]);
 
   function formatDate(dateStr = '01-01-1901') {
     const date = new Date(dateStr);
@@ -101,8 +102,7 @@ export default function EditTicket({ ticket: initialTicket }) {
     setOpenDialogs((prev) => ({ ...prev, [name]: value }));
   };
 
-  if (!ticket) return <Typography>Ticket not found</Typography>;
-
+  if (!ticket) return <EmptyState />;
   return (
     <>
       <Paper sx={{ position: 'fixed', top: 150, left: 220, right: 20, bottom: 20, display: 'flex', flexDirection: 'column', overflow: 'auto', borderRadius: 4, p: 4, backgroundColor: '#fff', boxShadow: '0px 8px 24px rgba(239, 241, 246, 1)' }}>
