@@ -6,6 +6,7 @@ import MainLayout from '../layouts/mainLayout';
 import MinimalCenteredLayout from '../layouts/minimalCenterLayout';
 //import PrivateRoute from '../components/privateRoute';
 import NotFound404 from '../pages/404';
+import QualityDashboardPage from '../pages/dashboard';
 
 // ...otros imports lazy
 // Lazy-loaded pages
@@ -26,8 +27,9 @@ export default function AppRoutes({ agentEmail, filters, setFilters, authError, 
       <Routes>
         {/**<Route path="/" element={<PrivateRoute />}>*/}
           <Route element={<MainLayout agentEmail={agentEmail} filters={filters} setFilters={setFilters} />}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<TableTickets />} />
+            <Route index element={<Navigate to="/tickets" replace />} />
+            <Route path="dashboard" element={<QualityDashboardPage />} />
+            <Route path="tickets" element={<TableTickets />} />
             <Route path="tickets/edit/:ticketId" element={<EditTicket />} />
             <Route path="profile-search" element={<ProfileSearch />} />
             <Route path="patient-search" element={<SearchPatientDeep />} />

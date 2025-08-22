@@ -176,3 +176,52 @@ export const getTicketById = async (ticketId, accessToken=null) => {
     }
 };
 
+
+// utils/apiTickets.js
+// utils/apiTickets.js
+export const getStats = async ({ from, to, agent, reviewer } = {}) => {
+  const qs = new URLSearchParams();
+  if (from) qs.append('from', from);
+  if (to) qs.append('to', to);
+  if (agent) qs.append('agent', agent);
+  if (reviewer) qs.append('reviewer', reviewer);
+
+  //const url = `${ENDPOINT_URLS.API}/cosmoQcMetrics${qs.toString() ? `?${qs.toString()}` : ''}`;
+  const url = `${ENDPOINT_URLS.API}/cosmoQcMetrics`;
+  try {
+    const res = await fetch(url);
+    const body = await res.json();
+
+    if (!res.ok || body?.success === false) {
+      throw new Error(body?.message || 'Error fetching QC metrics');
+    }
+
+    // El endpoint puede devolver plano o con .data
+    const src = (body?.data && (body.outcomes === undefined && body.avgScores === undefined))
+      ? body.data
+      : body;
+
+    const data = {
+      outcomes: src?.outcomes ?? {},
+      avgScores: Array.isArray(src?.avgScores) ? src.avgScores : [],
+      trend: Array.isArray(src?.trend) ? src.trend : [],
+      rubricAvg: src?.rubricAvg ?? {},
+      histogram: Array.isArray(src?.histogram) ? src.histogram : [],
+      failRate: Number(src?.failRate ?? 0),
+      coachingRate: Number(src?.coachingRate ?? 0),
+      topAgents: Array.isArray(src?.topAgents) ? src.topAgents : [],
+      bottomAgents: Array.isArray(src?.bottomAgents) ? src.bottomAgents : [],
+      evaluationsPerReviewer: Array.isArray(src?.evaluationsPerReviewer) ? src.evaluationsPerReviewer : [],
+      weakestCriterion: src?.weakestCriterion ?? null,
+      total: Number(src?.total ?? 0),
+      dropped: Number(src?.dropped ?? 0),
+      message: src?.message,
+    };
+
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, message: err?.message || 'Something went wrong' };
+  }
+};
+
+

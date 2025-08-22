@@ -33,8 +33,9 @@ export default function CollapsibleDrawer() {
   //const currentAgent = agents.find((a) => a.agent_email === supEmail);
 
   const navItems = [
-    { icon: <icons.callLogs style={{ fontSize: 22 }} />, label: 'Call Logs', path: '/dashboard', roles: ['Quality'] },
+    { icon: <icons.callLogs style={{ fontSize: 22 }} />, label: 'Call Logs', path: '/tickets', roles: ['Quality'] },
     { icon: <icons.searchIcon style={{ fontSize: 22 }} />, label: 'Find', path: '/profile-search', roles: ['Quality'] },
+    { icon: <icons.callLogs style={{ fontSize: 22 }} />, label: 'Call Logs', path: '/dashboard', roles: ['Quality'] },
 
   ];
 

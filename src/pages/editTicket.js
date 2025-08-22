@@ -69,7 +69,20 @@ export default function EditTicket({ ticket: initialTicket }) {
   });
 
   // Derivados de QC
+  // 👉 Derivados de QC (ordenados)
   const qc = ticket?.qc || null;
+  const qcHistory = useMemo(() => {
+    if (!qc?.history) return [];
+    return [...qc.history].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }, [qc?.history]);
+
+  // helper para nombre
+  function toName(email = '') {
+    const [u] = String(email).split('@');
+    if (!u) return email || '—';
+    return u.split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+  }
+
   const qcMeta = useMemo(() => {
     if (!qc) return null;
     const sKey = qc.status || 'pending';
@@ -240,26 +253,39 @@ export default function EditTicket({ ticket: initialTicket }) {
                     <Typography variant="h6" sx={{ fontWeight: 'bold', color: getStatusColor(status) }}>
                       Quality Review
                     </Typography>
-                    {qcMeta ? (
-                      <Chip
-                        size="small"
-                        label={qcMeta.label}
-                        sx={{ bgcolor: qcMeta.col.bg, color: qcMeta.col.text, fontWeight: 'bold' }}
-                      />
-                    ) : (
-                      <Chip size="small" label="No review" />
-                    )}
+                    
                   </Box>
 
-                  {qcMeta ? (
+                  {qcHistory.length > 0 ? (
                     <Stack spacing={1}>
-                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                        <Chip size="small" variant="outlined" label={`Score: ${qcMeta.score}/15`} />
-                        <Chip size="small" variant="outlined" label={`Reviewer: ${qcMeta.reviewer}`} />
-                      </Stack>
-                      <Typography variant="caption" color="text.secondary">
-                        Updated: {qcMeta.updated}
-                      </Typography>
+                      {qcHistory.map((h, idx) => (
+                        <Stack
+                          key={idx}
+                          direction="row"
+                          spacing={1}
+                          alignItems="center"
+                          justifyContent="space-between"
+                        >
+                          <Chip size="small" variant="outlined" label={`Score: ${h.score ?? '—'}/15`} />
+                          {qc?.status ? (
+                            <Chip
+                              size="small"
+                              label={h.status.replace('_',' ')}
+                              sx={{
+                                bgcolor: (qcColors[h.status] || qcColors.pending).bg,
+                                color: (qcColors[h.status] || qcColors.pending).text,
+                                fontWeight: 'bold'
+                              }}
+                            />
+                            ) : (
+                              <Chip size="small" label="No review" />
+                          )}
+                          <Typography variant="body2" color="text.secondary">
+                            {toName(h.reviewer_email)}
+                          </Typography>
+                        </Stack>
+                      ))}
+
                       <Box mt={1} display="flex" justifyContent="flex-end">
                         <Button size="small" variant="contained" onClick={() => setQcOpen(true)}>
                           View details

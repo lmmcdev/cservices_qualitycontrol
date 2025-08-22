@@ -2,10 +2,9 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   Drawer, Box, CardContent, Typography, Chip, Divider,
-  TextField, Button, Rating, Stack, Tooltip, IconButton
+  TextField, Button, Rating, Stack, Tooltip, IconButton, Paper
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-//import { addQcData } from '../../utils/apiTickets';
 
 const statusColor = {
   pending:    { bg: '#FFF5DA', text: '#B08500' },
@@ -13,6 +12,23 @@ const statusColor = {
   passed:     { bg: '#DAF8F4', text: '#00B8A3' },
   failed:     { bg: '#FFE2EA', text: '#FF3B69' },
   coaching_required: { bg: '#EAE8FA', text: '#7C3AED' },
+};
+
+// 👉 Helper para formatear fechas en Miami
+const formatMiami = isoStr => {
+  try {
+    return new Date(isoStr).toLocaleString('es-US', {
+      timeZone: 'America/New_York',
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return isoStr;
+  }
 };
 
 export default function QcPanel({
@@ -71,6 +87,12 @@ export default function QcPanel({
 
   const container = typeof document !== 'undefined' ? document.body : undefined;
 
+  // 👉 Historial ordenado (más reciente primero)
+  const history = useMemo(() => {
+    const arr = Array.isArray(qc.history) ? qc.history : [];
+    return [...arr].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }, [qc.history]);
+
   return (
     <Drawer
       anchor="right"
@@ -79,7 +101,6 @@ export default function QcPanel({
       variant="temporary"
       keepMounted
       container={container}
-      // SÚBELE el z-index para estar por encima de cualquier contenedor fijo
       sx={{
         zIndex: (theme) => ((theme?.zIndex?.modal ?? 1300) + 2),
         '& .MuiDrawer-paper': {
@@ -110,6 +131,7 @@ export default function QcPanel({
       {/* Body */}
       <Box sx={{ height: '100%', overflowY: 'auto' }}>
         <CardContent sx={{ p: 3 }}>
+          {/* Info del ticket */}
           <Stack spacing={1} mb={2}>
             <Typography variant="body2">Call Duration: {ticket?.call_duration || 0} min</Typography>
             <Typography variant="body2">Priority: {ticket?.aiClassification?.priority || '—'}</Typography>
@@ -119,6 +141,7 @@ export default function QcPanel({
 
           <Divider sx={{ my: 2 }} />
 
+          {/* Form para nueva evaluación */}
           <Stack spacing={2}>
             {[
               ['Compliance','compliance'],
@@ -141,6 +164,7 @@ export default function QcPanel({
               onChange={e => handleChange('comments', e.target.value)}
             />
           </Stack>
+
 
           <Box mt={2} display="flex" alignItems="center" gap={1}>
             <Chip label={`Score: ${score}/15`} color="primary" variant="outlined" />
@@ -167,6 +191,67 @@ export default function QcPanel({
               Save review
             </Button>
           </Stack>
+
+          {/* Historial */}
+          {history.length > 0 && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                Evaluation History
+              </Typography>
+              <Stack spacing={1.5}>
+
+                {history.map((h, idx) => {
+                  const st = statusColor[h.status] || {};
+                  return (
+                    <Paper key={idx} variant="outlined" sx={{ p:1.5, borderLeft:`4px solid ${st.text}` }}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Chip label={h.status.replace('_',' ')} size="small"
+                              sx={{ bgcolor: st.bg, color: st.text, fontWeight:'bold' }} />
+                        <Typography variant="caption" color="text.secondary">
+                          {formatMiami(h.createdAt)}
+                        </Typography>
+                      </Stack>
+                      <Typography variant="body2" sx={{ mt:0.5 }}>
+                        Reviewer: {h.reviewer_email || '—'}
+                      </Typography>
+                      <Typography variant="body2">Score: {h.score ?? '—'}/15</Typography>
+
+                      {/* 👉 Bloque de rúbrica con estrellas */}
+                      {h.rubric && (
+                        <Stack spacing={0.5} mt={1}>
+                          {[
+                            ['Compliance','compliance'],
+                            ['Accuracy','accuracy'],
+                            ['Process','process'],
+                            ['Soft skills','softSkills'],
+                            ['Documentation','documentation'],
+                          ].map(([label, key]) => (
+                            <Box key={key} display="flex" alignItems="center" justifyContent="space-between">
+                              <Typography variant="caption" color="text.secondary">{label}</Typography>
+                              <Rating value={h.rubric?.[key] ?? 0} max={3} readOnly size="small" />
+                            </Box>
+                          ))}
+                        </Stack>
+                      )}
+
+                      {h.rubric?.comments && (
+                        <Tooltip title={h.rubric.comments}>
+                          <Typography variant="body2" noWrap sx={{ maxWidth:'100%', mt:0.5 }}>
+                            “{h.rubric.comments}”
+                          </Typography>
+                        </Tooltip>
+                      )}
+                    </Paper>
+                  );
+                })}
+              </Stack>
+            </>
+          )}
+
+          <Divider sx={{ my: 2 }} />
+
+          
         </CardContent>
       </Box>
     </Drawer>
