@@ -32,11 +32,11 @@ const qcColors = {
   coaching_required: { bg: '#EAE8FA', text: '#7C3AED' },
 };
 
-function toName(email = '') {
+/*function toName(email = '') {
   const [u] = String(email).split('@');
   if (!u) return email || '—';
   return u.split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
-}
+}*/
 
 export default function EditTicket({ ticket: initialTicket }) {
   const { setLoading } = useLoading();
@@ -83,7 +83,7 @@ export default function EditTicket({ ticket: initialTicket }) {
     return u.split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
   }
 
-  const qcMeta = useMemo(() => {
+  /*const qcMeta = useMemo(() => {
     if (!qc) return null;
     const sKey = qc.status || 'pending';
     const col = qcColors[sKey] || qcColors.pending;
@@ -98,7 +98,7 @@ export default function EditTicket({ ticket: initialTicket }) {
     const updated = qc.updatedAt ? new Date(qc.updatedAt).toLocaleString() : '—';
     const label = String(sKey).replace('_', ' ');
     return { label, col, score, reviewer, updated };
-  }, [qc]);
+  }, [qc]);*/
 
   useEffect(() => {
     setQualityControl(!!ticket?.quality_control);
