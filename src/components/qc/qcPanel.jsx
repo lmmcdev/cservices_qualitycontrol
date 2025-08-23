@@ -1,4 +1,3 @@
-// src/components/qc/QcPanel.jsx
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   Drawer, Box, CardContent, Typography, Chip, Divider,
@@ -31,16 +30,34 @@ const formatMiami = isoStr => {
   }
 };
 
+// Llamada directa al endpoint unificado (fallback si no recibimos callbacks por props)
+async function apiCosmoQualityUnified(payload) {
+  const res = await fetch('/api/cosmoQualityUnified', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.success === false) {
+    const msg = data?.message || data?.error || `Request failed (${res.status})`;
+    throw new Error(msg);
+  }
+  return data; // { success, message, data }
+}
+
 export default function QcPanel({
   open,
   onClose,
   ticket,
-  onSubmit,      // async ({ rubric, outcome, score })
-  onSetStatus,   // async (statusStr)
+  onSubmit,      // async ({ rubric, outcome, score }) — opcional
+  onSetStatus,   // async (statusStr) — opcional
   disabled,
   width = 420,
+  onUpdated,     // opcional: (dto) => void — para que el padre refresque el ticket
+  setSnackbar,   // opcional: ({open,message,severity}) => void
 }) {
   const qc = ticket?.qc || {};
+  const [saving, setSaving] = useState(false);
   const [rubric, setRubric] = useState({
     compliance: qc?.rubric?.compliance ?? 0,
     accuracy: qc?.rubric?.accuracy ?? 0,
@@ -49,11 +66,12 @@ export default function QcPanel({
     documentation: qc?.rubric?.documentation ?? 0,
     comments: qc?.rubric?.comments ?? '',
   });
-  const [outcome, setOutcome] = useState(
-    qc?.status && ['passed','failed','coaching_required'].includes(qc.status)
-      ? qc.status
-      : 'passed'
-  );
+
+  // ✅ Ahora soportamos outcome "reviewing" que inserta el ticket en el contenedor
+  const initialOutcome = (qc?.status === 'in_review')
+    ? 'reviewing'
+    : (['passed','failed','coaching_required'].includes(qc?.status) ? qc.status : 'passed');
+  const [outcome, setOutcome] = useState(initialOutcome);
 
   useEffect(() => {
     setRubric({
@@ -64,26 +82,77 @@ export default function QcPanel({
       documentation: qc?.rubric?.documentation ?? 0,
       comments: qc?.rubric?.comments ?? '',
     });
-    setOutcome(qc?.status && ['passed','failed','coaching_required'].includes(qc.status) ? qc.status : 'passed');
+    const next = (qc?.status === 'in_review')
+      ? 'reviewing'
+      : (['passed','failed','coaching_required'].includes(qc?.status) ? qc.status : 'passed');
+    setOutcome(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticket?.id, JSON.stringify(qc)]);
 
-  const score = useMemo(
-    () => (rubric.compliance + rubric.accuracy + rubric.process + rubric.softSkills + rubric.documentation),
-    [rubric]
-  );
+  const score = useMemo(() => (
+    (rubric.compliance + rubric.accuracy + rubric.process + rubric.softSkills + rubric.documentation)
+  ), [rubric]);
 
   const s = statusColor[qc?.status || 'pending'] || {};
   const handleChange = useCallback((k, v) => setRubric(r => ({ ...r, [k]: v || 0 })), []);
-  const handleDrawerClose = useCallback(() => { if (!disabled) onClose?.(); }, [disabled, onClose]);
+  const handleDrawerClose = useCallback(() => { if (!disabled && !saving) onClose?.(); }, [disabled, saving, onClose]);
 
+  // Guardar evaluación: usa callbacks si existen; si no, llama directamente al endpoint
   const handleSave = useCallback(async () => {
-    if (!disabled) await onSubmit?.({ rubric, outcome, score });
-  }, [disabled, onSubmit, rubric, outcome, score]);
+    if (disabled || saving) return;
+    setSaving(true);
+    try {
+      if (onSubmit) {
+        await onSubmit({ rubric, outcome, score });
+      } else {
+        const payload = { ticketId: ticket.id, rubric, outcome };
+        const { data } = await apiCosmoQualityUnified(payload);
+        onUpdated?.(data);
+        setSnackbar?.({ open: true, message: 'QC review saved', severity: 'success' });
+      }
+      onClose?.();
+    } catch (e) {
+      setSnackbar?.({ open: true, message: e?.message || 'Error saving QC review', severity: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  }, [disabled, saving, onSubmit, rubric, outcome, score, ticket?.id, onClose, onUpdated, setSnackbar]);
 
+  // Marcar explícitamente "in_review" (inserta en el contenedor)
   const handleMarkInReview = useCallback(async () => {
-    if (!disabled) await onSetStatus?.('in_review');
-  }, [disabled, onSetStatus]);
+    if (disabled || saving) return;
+    setSaving(true);
+    try {
+      if (onSetStatus) {
+        await onSetStatus('in_review');
+      } else {
+        const { data } = await apiCosmoQualityUnified({ ticketId: ticket.id, status: 'in_review' });
+        onUpdated?.(data);
+        setSnackbar?.({ open: true, message: 'QC status set to in_review', severity: 'success' });
+      }
+    } catch (e) {
+      setSnackbar?.({ open: true, message: e?.message || 'Error setting QC status', severity: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  }, [disabled, saving, onSetStatus, ticket?.id, onUpdated, setSnackbar]);
+
+  // Botón opcional: "Remove from QC" (envía un status cualquiera distinto de in_review, por ej. done)
+  const handleRemoveFromQc = useCallback(async () => {
+    if (disabled || saving) return;
+    setSaving(true);
+    try {
+      const payload = { ticketId: ticket.id, status: 'done' };
+      const { data } = await apiCosmoQualityUnified(payload);
+      onUpdated?.(data);
+      setSnackbar?.({ open: true, message: 'Ticket removed from QC list', severity: 'success' });
+      onClose?.();
+    } catch (e) {
+      setSnackbar?.({ open: true, message: e?.message || 'Error removing from QC list', severity: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  }, [disabled, saving, ticket?.id, onUpdated, setSnackbar, onClose]);
 
   const container = typeof document !== 'undefined' ? document.body : undefined;
 
@@ -123,9 +192,18 @@ export default function QcPanel({
             sx={{ bgcolor: s.bg, color: s.text, fontWeight: 'bold' }}
           />
         </Box>
-        <IconButton onClick={handleDrawerClose} disabled={disabled} aria-label="Close QC panel">
-          <CloseIcon />
-        </IconButton>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Tooltip title="Remove from QC">
+            <span>
+              <Button size="small" color="inherit" variant="text" disabled={disabled || saving} onClick={handleRemoveFromQc}>
+                Remove
+              </Button>
+            </span>
+          </Tooltip>
+          <IconButton onClick={handleDrawerClose} disabled={disabled || saving} aria-label="Close QC panel">
+            <CloseIcon />
+          </IconButton>
+        </Stack>
       </Box>
 
       {/* Body */}
@@ -165,7 +243,7 @@ export default function QcPanel({
             />
           </Stack>
 
-
+          {/* Outcome selector: incluye "reviewing" para insertar en el contenedor */}
           <Box mt={2} display="flex" alignItems="center" gap={1}>
             <Chip label={`Score: ${score}/15`} color="primary" variant="outlined" />
             <TextField
@@ -173,6 +251,7 @@ export default function QcPanel({
               onChange={e => setOutcome(e.target.value)}
               SelectProps={{ native: true }}
             >
+              <option value="reviewing">Reviewing</option>
               <option value="passed">Passed</option>
               <option value="failed">Failed</option>
               <option value="coaching_required">Coaching</option>
@@ -180,28 +259,27 @@ export default function QcPanel({
           </Box>
 
           <Stack direction="row" spacing={1} mt={3} justifyContent="flex-end">
-            <Tooltip title="Mark as In review">
+            <Tooltip title="Mark as In review (adds to QC list)">
               <span>
-                <Button variant="outlined" disabled={disabled} onClick={handleMarkInReview}>
+                <Button variant="outlined" disabled={disabled || saving} onClick={handleMarkInReview}>
                   In review
                 </Button>
               </span>
             </Tooltip>
-            <Button variant="contained" disabled={disabled} onClick={handleSave}>
+            <Button variant="contained" disabled={disabled || saving} onClick={handleSave}>
               Save review
             </Button>
           </Stack>
 
           {/* Historial */}
-          {history.length > 0 && (
+          {Array.isArray(qc.history) && qc.history.length > 0 && (
             <>
               <Divider sx={{ my: 2 }} />
               <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
                 Evaluation History
               </Typography>
               <Stack spacing={1.5}>
-
-                {history.map((h, idx) => {
+                {[...qc.history].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)).map((h, idx) => {
                   const st = statusColor[h.status] || {};
                   return (
                     <Paper key={idx} variant="outlined" sx={{ p:1.5, borderLeft:`4px solid ${st.text}` }}>
@@ -217,7 +295,6 @@ export default function QcPanel({
                       </Typography>
                       <Typography variant="body2">Score: {h.score ?? '—'}/15</Typography>
 
-                      {/* 👉 Bloque de rúbrica con estrellas */}
                       {h.rubric && (
                         <Stack spacing={0.5} mt={1}>
                           {[
@@ -250,8 +327,6 @@ export default function QcPanel({
           )}
 
           <Divider sx={{ my: 2 }} />
-
-          
         </CardContent>
       </Box>
     </Drawer>
