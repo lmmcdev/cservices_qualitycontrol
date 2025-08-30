@@ -1,7 +1,7 @@
 {
   "name": "react-dev",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
-  "postCreateCommand": "npm install",
+  "postCreateCommand": "npm install -g @anthropic-ai/claude-code || true",
   "customizations": {
     "vscode": {
       "extensions": [
